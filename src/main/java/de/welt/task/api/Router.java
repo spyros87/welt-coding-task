@@ -1,5 +1,6 @@
 package de.welt.task.api;
 
+import de.welt.task.utilities.JsonSupport;
 import spark.Spark;
 
 /**
@@ -9,6 +10,6 @@ final class Router {
 
     void httpRoutes() {
 
-        Spark.get("/aggregations/:id", (request, response) -> "Hello");
+        Spark.get("/aggregations/:id", (request, response) -> "Hello", JsonSupport.jsonTransformer());
     }
 }
