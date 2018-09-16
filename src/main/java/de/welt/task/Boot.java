@@ -1,7 +1,8 @@
 package de.welt.task;
 
+import de.welt.task.api.Handlers;
+
 import static spark.Spark.exception;
-import static spark.Spark.get;
 import static spark.Spark.port;
 
 public final class Boot {
@@ -10,7 +11,7 @@ public final class Boot {
 
         port(8080);
 
-        get("/aggregations/:id", (request, response) -> "Hello");
+        Handlers.routing();
 
         exception(Exception.class, (exception, request, response) -> {
             response.status(503);
