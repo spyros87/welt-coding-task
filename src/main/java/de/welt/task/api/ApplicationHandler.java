@@ -14,6 +14,8 @@ import spark.Route;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.net.MediaType.JSON_UTF_8;
@@ -22,6 +24,9 @@ import static org.asynchttpclient.Dsl.asyncHttpClient;
 public class ApplicationHandler implements Route {
 
     private static final Logger LOG = LoggerFactory.getLogger(ApplicationHandler.class);
+
+    private static final String USER_SERVICE_URL = "http://jsonplaceholder.typicode.com/users/";
+    private static final String USER_POST_SERVICE_URL = "http://jsonplaceholder.typicode.com/posts?userId=";
 
     @Override
     public Object handle(Request request, Response response) throws Exception {
@@ -37,27 +42,35 @@ public class ApplicationHandler implements Route {
         return callback.get().toCompletableFuture().join();
     }
 
-    private CompletionStage<ResponseContainer> callRemoteServiceWithParameter(String id) {
+    private static CompletionStage<ResponseContainer> callRemoteServiceWithParameter(String id) {
 
         LOG.info("Requesting information for Entity: [{}]", id);
 
-        CompletableFuture<User> userResponseFuture = asyncHttpClient().prepareGet("http://jsonplaceholder.typicode.com/users/" + id)
-                                                                      .execute()
-                                                                      .toCompletableFuture()
-                                                                      .thenApply(response -> {
-                                                                          LOG.info("parsing response from [{}, {}]", response.getUri(), Instant.now().toEpochMilli());
-                                                                          return (User) JsonSupport.jsonParser(response.getResponseBody(), User.class);
-                                                                      });
+        CompletableFuture<User> userResponseFuture =
+                executeHttpCall(USER_SERVICE_URL + id)
+                        .thenApply(asyncResponseHandler(User.class));
 
-        CompletableFuture<UserPost[]> postResponseFuture = asyncHttpClient().prepareGet("http://jsonplaceholder.typicode.com/posts?userId=" + id)
-                                                                            .execute()
-                                                                            .toCompletableFuture()
-                                                                            .thenApply(response -> {
-                                                                                LOG.info("parsing response from [{}, {}]", response.getUri(), Instant.now().toEpochMilli());
-                                                                                return (UserPost[]) JsonSupport.jsonParser(response.getResponseBody(), UserPost[].class);
-                                                                            });
+        CompletableFuture<UserPost[]> postResponseFuture =
+                executeHttpCall(USER_POST_SERVICE_URL + id)
+                        .thenApply(asyncResponseHandler(UserPost[].class));
 
-        return CompletableFutures.combine(userResponseFuture, postResponseFuture, ResponseContainer::new);
+        return CompletableFutures.combine(userResponseFuture, postResponseFuture, resultCombiner());
     }
 
+    private static CompletableFuture<org.asynchttpclient.Response> executeHttpCall(String url) {
+        return asyncHttpClient().prepareGet(url)
+                                .execute()
+                                .toCompletableFuture();
+    }
+
+    private static <T> Function<org.asynchttpclient.Response, T> asyncResponseHandler(Class<T> parseToClass) {
+        return response -> {
+            LOG.info("parsing response from [{}, {}]", response.getUri(), Instant.now().toEpochMilli());
+            return (T) JsonSupport.jsonParser(response.getResponseBody(), parseToClass);
+        };
+    }
+
+    private static BiFunction<User, UserPost[], ResponseContainer> resultCombiner() {
+        return ResponseContainer::new;
+    }
 }
