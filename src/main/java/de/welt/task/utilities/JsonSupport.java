@@ -7,7 +7,11 @@ import spark.ResponseTransformer;
  */
 public interface JsonSupport {
 
+    static Object jsonParser(String json, Class parseToClass) {
+        return GsonProvider.gsonInstance().fromJson(json, parseToClass);
+    }
+
     static ResponseTransformer jsonTransformer() {
-        return null;
+        return GsonProvider.gsonInstance()::toJson;
     }
 }
